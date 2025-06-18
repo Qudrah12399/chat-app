@@ -1,0 +1,284 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aplikasi Pesan v1.3</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.light {
+      background-color: #f3f3f3;
+      color: #000;
+    }
+
+    body.dark {
+      background-color: #1e1e1e;
+      color: #f3f3f3;
+    }
+
+    header {
+      background-color: #4CAF50;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+
+    #chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    .message {
+      background-color: #fff;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 10px;
+      max-width: 80%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background-color: var(--user-color, #DCF8C6);
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background-color: var(--bot-color, #eeeeee);
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: 4px;
+      right: 8px;
+      background: transparent;
+      border: none;
+      color: red;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    form {
+      display: flex;
+      padding: 1rem;
+      background-color: #fff;
+      border-top: 1px solid #ccc;
+    }
+
+    body.dark form {
+      background-color: #2c2c2c;
+      border-top: 1px solid #444;
+    }
+
+    input[type="text"], select {
+      flex: 1;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-right: 0.5rem;
+    }
+
+    button {
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #username-container {
+      padding: 1rem;
+      background-color: #e0e0e0;
+    }
+
+    body.dark #username-container {
+      background-color: #2c2c2c;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background-color: #ddd;
+    }
+
+    body.dark #controls {
+      background-color: #2c2c2c;
+    }
+
+    .control-btn {
+      background-color: #777;
+      color: white;
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .control-btn:hover {
+      background-color: #555;
+    }
+  </style>
+</head>
+<body class="light">
+
+  <header>Aplikasi Pesan v1.3</header>
+
+  <div id="username-container">
+    Nama Anda: <input type="text" id="username" placeholder="Masukkan nama" required />
+    &nbsp; Kirim sebagai:
+    <select id="sender-select">
+      <option value="user">Pengguna</option>
+      <option value="bot">Bot</option>
+    </select>
+  </div>
+
+  <div id="controls">
+    <button class="control-btn" onclick="hapusSemuaPesan()">🗑️ Hapus Semua</button>
+    <button class="control-btn" onclick="toggleMode()">🌓 Ganti Mode</button>
+    <label>🎨 Warna User: <input type="color" id="user-color" value="#DCF8C6" onchange="setUserColor()" /></label>
+    <label>🤖 Warna Bot: <input type="color" id="bot-color" value="#eeeeee" onchange="setBotColor()" /></label>
+  </div>
+
+  <div id="chat-container"></div>
+
+  <form id="chat-form">
+    <input type="text" id="message-input" placeholder="Ketik pesan..." autocomplete="off" required />
+    <button type="submit">Kirim</button>
+  </form>
+
+  <audio id="notif-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+  <script>
+    const chatContainer = document.getElementById('chat-container');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const usernameInput = document.getElementById('username');
+    const senderSelect = document.getElementById('sender-select');
+    const notifSound = document.getElementById('notif-sound');
+    const userColorPicker = document.getElementById('user-color');
+    const botColorPicker = document.getElementById('bot-color');
+    const body = document.body;
+
+    function tampilkanPesan(user, teks, type = "user") {
+      const div = document.createElement('div');
+      div.className = 'message ' + type;
+      div.style.setProperty('--user-color', localStorage.getItem("userColor") || "#DCF8C6");
+      div.style.setProperty('--bot-color', localStorage.getItem("botColor") || "#eeeeee");
+      div.innerHTML = \`\${user}: \${teks} <button class="delete-btn" onclick="hapusPesan(this)">×</button>\`;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      notifSound.play();
+    }
+
+    function hapusPesan(el) {
+      el.parentElement.remove();
+      simpanSemuaPesan(); // update penyimpanan
+    }
+
+    function simpanPesan(user, text, type) {
+      const saved = JSON.parse(localStorage.getItem("chatMessages")) || [];
+      saved.push({ user, text, type });
+      localStorage.setItem("chatMessages", JSON.stringify(saved));
+    }
+
+    function simpanSemuaPesan() {
+      const messages = Array.from(document.querySelectorAll(".message")).map(msg => {
+        const type = msg.classList.contains("bot") ? "bot" : "user";
+        const textContent = msg.textContent.replace("×", "").trim();
+        const [user, ...textArr] = textContent.split(":");
+        return { user: user.trim(), text: textArr.join(":").trim(), type };
+      });
+      localStorage.setItem("chatMessages", JSON.stringify(messages));
+    }
+
+    function hapusSemuaPesan() {
+      localStorage.removeItem("chatMessages");
+      chatContainer.innerHTML = '';
+    }
+
+    function toggleMode() {
+      const current = body.classList.contains("dark") ? "dark" : "light";
+      const newMode = current === "light" ? "dark" : "light";
+      body.className = newMode;
+      localStorage.setItem("mode", newMode);
+    }
+
+    function setUserColor() {
+      const val = userColorPicker.value;
+      document.documentElement.style.setProperty('--user-color', val);
+      localStorage.setItem("userColor", val);
+    }
+
+    function setBotColor() {
+      const val = botColorPicker.value;
+      document.documentElement.style.setProperty('--bot-color', val);
+      localStorage.setItem("botColor", val);
+    }
+
+    chatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const username = usernameInput.value.trim();
+      const message = messageInput.value.trim();
+      const type = senderSelect.value;
+
+      if (!username || !message) return;
+
+      tampilkanPesan(username, message, type);
+      simpanPesan(username, message, type);
+
+      // Balasan otomatis
+      if (type === "user") {
+        setTimeout(() => {
+          tampilkanPesan("Bot", "Halo " + username + ", ini adalah balasan otomatis.", "bot");
+          simpanPesan("Bot", "Halo " + username + ", ini adalah balasan otomatis.", "bot");
+        }, 1000);
+      }
+
+      messageInput.value = '';
+      messageInput.focus();
+    });
+
+    window.onload = () => {
+      const savedMessages = JSON.parse(localStorage.getItem("chatMessages")) || [];
+      savedMessages.forEach(({ user, text, type }) => {
+        tampilkanPesan(user, text, type);
+      });
+      const mode = localStorage.getItem("mode") || "light";
+      body.className = mode;
+
+      if (localStorage.getItem("userColor")) userColorPicker.value = localStorage.getItem("userColor");
+      if (localStorage.getItem("botColor")) botColorPicker.value = localStorage.getItem("botColor");
+
+      setUserColor();
+      setBotColor();
+    };
+  </script>
+
+</body>
+</html>
